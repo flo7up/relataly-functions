@@ -8,6 +8,9 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
 import io
+from newspaper import Article
+from bs4 import BeautifulSoup
+from hackernews import HackerNews
 
 # Use environment variables for API key
 client = SecretClient(f"https://{'keyvaultforbot'}.vault.azure.net/", DefaultAzureCredential())
@@ -51,7 +54,7 @@ def save_posts_log(df):
 
 
 #### NewsAPI
-def fetch_news(number=10):
+def fetch_newsapi_news(number=10):
     # Fetch tech news from NewsAPI
     url = f"https://newsapi.org/v2/top-headlines?country=us&category=technology&category=business&category=science&apiKey={NEWSAPI_API_KEY}"
     response = requests.get(url).json()
@@ -60,6 +63,37 @@ def fetch_news(number=10):
     df = df[["title", "description", "url"]].dropna()
     return df.head(number)
 
+
+def fetch_main_content_from_url(url):
+    article = Article(url)
+    article.download()
+    article.parse()
+    return article.text
+
+#### HackerNews
+def fetch_hacker_news(number=50):
+    hn = HackerNews()
+    top_story_ids = hn.top_stories()
+
+    news_list = []
+    for story in top_story_ids[:number]:
+        item = hn.item(story)
+        if item.score > 200 and len(item.title) > 30:
+            try:
+                content = fetch_main_content_from_url(item.url)[0:3000]
+                logging.info(f'Content for {item.title} fetched')
+                logging.info(f'Content length: {len(content)}')
+            except:
+                content = ''
+        
+            news_list.append({
+                'title': item.title,
+                'description': content,  # empty description
+                'url': item.url
+            })
+
+    df = pd.DataFrame(news_list)
+    return df
 
 #### OpenAI Engine
 def openai_request(instructions, task, sample = [], temperature=0.5, model_engine='gpt-3.5-turbo'):
@@ -72,20 +106,24 @@ def openai_request(instructions, task, sample = [], temperature=0.5, model_engin
 
 #### Define OpenAI Prompt for news Relevance
 def select_relevant_news_prompt(news_articles, topics, n):    
-    instructions = f'Your task is to examine a list of News Titles and return a list of boolean values that indicate which of the News Titles are relevant to an audience interested in the following topics: {topics}]. \
-    Return a list of True or False values that indicate the relevance of the News Titles.'
+    instructions = f"Please review the given list of news titles. Determine their relevance to an audience keen on the following topics: {topics}]. \
+    Provide a list of boolean values (True or False) corresponding to each title's relevance."
     task =  f"{news_articles}?" 
     sample = [
-        {"role": "user", "content": f"['new AI model available from Nvidia', 'We Exploded the AMD Ryzen 7', 'Release of b2 Game', 'XGBoost 3.0 improvices Decision Forest Algorithms', 'New Zelda Game Now Available', 'Ukraine Uses a New Weapon', 'Apple IOS Update', 'Microsoft reinvents cognitive services', 'Tesla makes new battery']"},
-        {"role": "assistant", "content": "[True, False, False, True, False, False, False, True, False]"},
-        {"role": "user", "content": f"['Giant giraffs found in Africa', 'We Exploded the AMD Ryzen 7', 'Release of b2 Game', 'Donald Trump to make a come back', 'New Zelda Game Now Available', 'Ukraine Uses a New Weapon', 'Microsoft announces new analytics suite', 'introducing boooi', 'Did you hear of Toyota?']"}, 
-        {"role": "assistant", "content": "[False, False, False, False, False, False, True, False, False]"}]
+        {"role": "user", "content": f"['new AI model available from Nvidia', 'We Exploded the AMD Ryzen 7', 'Release of b2 Game', 'XGBoost 3.0 improvices Decision Forest Algorithms', 'New Zelda Game Now Available']"},
+        {"role": "assistant", "content": "[True, False, False, True, False]"},
+        {"role": "user", "content": f"['Giant giraffs found in Africa', 'We Exploded the AMD Ryzen 7', 'Rumors about ChatGPT-5', 'Donald Trump to make a come back', 'New Zelda Game Now Available']"}, 
+        {"role": "assistant", "content": "[False, False, True, False, False]"},
+        {"role": "user", "content": f"['Ukraine Uses a New Weapon', 'Microsoft announces new analytics suite', 'introducing boooi', 'Did you hear of Toyota?', 'Alberta AG launches Virtual Assistant']"}, 
+        {"role": "assistant", "content": "[False, False, False, False, True]"}
+        ]
+    
     return instructions, task, sample
 
 
 #### Define OpenAI Prompt for news Relevance
 def check_previous_posts_prompt(title, old_posts):    
-    instructions = f'Your objective is to assess the level of novelty in articles. You will compare a news title with a list of previous news and assign a rating on a scale of 0 to 5, where 5 indicates a complete overlap and 0 signifies an unrelated topic.'
+    instructions = f'Assess the level of novelty in a given list of articles. You will compare a news title with a list of previous news and score the noveliy of the articles on a scale of 0 to 5, where 5 indicates a complete overlap and 0 signifies a novel topic.'
     task =  f"'{title}. /n Previous News: {old_posts}' "
     sample = [
         {"role": "user", "content": "'Nvidia launches new AI model.' /n [new AI model available from Nvidia, We Exploded the AMD Ryzen 7 7800X3D, The Lara Croft Collection For Switch Has Been Rated By The ESRB]."},
@@ -145,17 +183,17 @@ def previous_post_check(title, old_posts):
 
 
 #### Main Bot
-def main_bot():
+def main_bot(df):
     df_old = get_old_news()
     df_old = df_old.tail(16)
     logging.info(df_old)
     print(df_old)
     # Fetch news data
-    df = fetch_news(9)
+    
     logging.info(df['title'])
     
     # Check the Relevance of the News and Filter those not relevant
-    relevant_topics ="[AI, Machine Learning, Data Science, Robotics, OpenAI, Artificial Intelligence, neural networks, Data Mining, tensorflow, pytorch, nlp, Data Analytics, virtual assistants, chatbots, Augmented Reality, ChatGPT, GPT, GPU, Anthrophic, Microsoft, Apple, Nvidia]"
+    relevant_topics ="[machine learning, data science, robotics, openai, artificial intelligence (ai), neural networks, data mining, tensorflow, pytorch, nlp, data analytics, virtual assistants, chatbots, augmented reality, chatgpt, gpt, gpu, anthropic, microsoft, apple, nvidia]"
     instructions, task, sample = select_relevant_news_prompt(list(df['title']), relevant_topics, len(list(df['title'])))
     temperature=0.0
     relevance = openai_request(instructions, task, sample, temperature)
@@ -202,7 +240,7 @@ def main_bot():
         logging.info("No news articles found")
         # 20% chance to tweet a fact
         import random
-        if random.random() < 0.5:
+        if random.random() < 0.2:
             fact = ' '
             print(f"Fact: {fact}")
             logging.info(f"Fact: {fact}")
@@ -222,6 +260,10 @@ def main(mytimer: func.TimerRequest) -> None:
 
     if mytimer.past_due:
         logging.info('The timer is past due!')
-    main_bot()
+    df_news_api = fetch_newsapi_news(5)
+    main_bot(df_news_api)
+    df_hacker_news = fetch_newsapi_news(10)
+    main_bot(df_hacker_news)
+
 
     logging.info('Python timer trigger function ran at %s', utc_timestamp)

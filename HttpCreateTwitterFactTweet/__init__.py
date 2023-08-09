@@ -1,6 +1,5 @@
 import logging
 import io
-
 import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -21,31 +20,29 @@ openai_api_key = None
 twitter_api = None
 
 
-def setup():
-    """Setup for retrieving Azure Key Vault secrets and creating the clients."""
 
-    global keyvault_client, blob_service_client, openai_api_key, twitter_api
+"""Setup for retrieving Azure Key Vault secrets and creating the clients."""
 
-    # Azure Key Vault client setup
-    keyvault_client = SecretClient(f"https://{KEYVAULT_NAME}.vault.azure.net/", DefaultAzureCredential())
+# Azure Key Vault client setup
+keyvault_client = SecretClient(f"https://{KEYVAULT_NAME}.vault.azure.net/", DefaultAzureCredential())
 
-    # Blob Storage setup
-    blobstorage_account_name = keyvault_client.get_secret('blobstorage-account-name').value
-    blobstorage_secret = keyvault_client.get_secret('blobstorage-secret').value
-    blob_service_client = BlobServiceClient(account_url=f"https://{blobstorage_account_name}.blob.core.windows.net", credential=blobstorage_secret)
+# Blob Storage setup
+blobstorage_account_name = keyvault_client.get_secret('blobstorage-account-name').value
+blobstorage_secret = keyvault_client.get_secret('blobstorage-secret').value
+blob_service_client = BlobServiceClient(account_url=f"https://{blobstorage_account_name}.blob.core.windows.net", credential=blobstorage_secret)
 
-    # Twitter Auth
-    twitter_api = tweepy.Client(
-        bearer_token=keyvault_client.get_secret('twitterbearertoken').value,
-        access_token=keyvault_client.get_secret('twitter-access-token').value,
-        access_token_secret=keyvault_client.get_secret('twitter-access-secret').value,
-        consumer_key=keyvault_client.get_secret('twitter-api-key').value,
-        consumer_secret=keyvault_client.get_secret('twitter-api-secret').value
-    )
+# Twitter Auth
+twitter_api = tweepy.Client(
+    bearer_token=keyvault_client.get_secret('twitterbearertoken').value,
+    access_token=keyvault_client.get_secret('twitter-access-token').value,
+    access_token_secret=keyvault_client.get_secret('twitter-access-secret').value,
+    consumer_key=keyvault_client.get_secret('twitter-api-key').value,
+    consumer_secret=keyvault_client.get_secret('twitter-api-secret').value
+)
 
-    # OpenAI API Key
-    openai_api_key = keyvault_client.get_secret('openai-api-key').value
-    openai.api_key = openai_api_key
+# OpenAI API Key
+openai_api_key = keyvault_client.get_secret('openai-api-key').value
+openai.api_key = openai_api_key
 
 
 def ensure_container_exists():
@@ -141,23 +138,25 @@ def create_tweet():
         # Tweet creation
         tweet = openai_request(instructions, task, sample)
         logging.info(f'Tweet created: {tweet}')
-        tweet = tweet.replace("'", ' ')
-        tweet_text = list(eval(tweet).values())[0]
-        term = list(eval(tweet).keys())[0]
+
+        tweet_text = str(list(eval(tweet).values())[0])
+        term = str(list(eval(tweet).keys())[0])
 
         # If tweet length > 280 characters, create a new tweet
         if check_tweet_length(tweet_text):
             logging.info(f'Tweet created: {tweet_text}')
 
             # Create tweet
-            print(f'Creating tweet: {tweet_text}')
             status = twitter_api.create_tweet(text=tweet_text)
-            
+            logging.info(f'Twitter response: {status.id}')
+
             # Add term to list of old terms and store to blob storage
             add_term(old_terms, term)
 
-            logging.info(f'Tweet posted: {status.id}')
+            logging.info(f'Tweet posted: {status["data"]["id"]}')
+            logging.info(f'Term added: {term}')
             return status, term, tweet_text
+            
 
     return 'error tweet too long', '', ''
 
@@ -171,15 +170,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     
     status, term, tweet = create_tweet()
     return func.HttpResponse(
-        f"{input}. This HTTP triggered function executed successfully.",
+        f"This HTTP triggered function executed successfully.",
         status=status,
+        tweet_id=status["data"]["id"],
         term=term,
-        tweet=tweet
+        tweet=status["data"]["text"]
     )
 
 
 
 if __name__ == "__main__":
-    setup()
     ensure_container_exists()
     main()

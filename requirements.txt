@@ -10,3 +10,6 @@ azure-storage-file-share
 azure-identity
 azure-keyvault
 tweepy
+BeautifulSoup4
+newspaper3k
+hackernews-python
