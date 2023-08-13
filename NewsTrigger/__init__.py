@@ -78,7 +78,7 @@ def fetch_hacker_news(number=50):
     news_list = []
     for story in top_story_ids[:number]:
         item = hn.item(story)
-        if item.score > 200 and len(item.title) > 30:
+        if item.score > 180 and len(item.title) > 30:
             try:
                 content = fetch_main_content_from_url(item.url)[0:3000]
                 logging.info(f'Content for {item.title} fetched')
@@ -250,9 +250,9 @@ def main_bot(df):
     else: 
         print("No news articles found")
         logging.info("No news articles found")
-        # 20% chance to tweet a fact
+        # 40% chance to tweet a fact
         import random
-        if random.random() < 0.2:
+        if random.random() < 0.4:
             fact = ' '
             print(f"Fact: {fact}")
             logging.info(f"Fact: {fact}")
