@@ -110,12 +110,24 @@ def select_relevant_news_prompt(news_articles, topics, n):
     Provide a list of boolean values (True or False) corresponding to each title's relevance."
     task =  f"{news_articles}?" 
     sample = [
-        {"role": "user", "content": f"['new AI model available from Nvidia', 'We Exploded the AMD Ryzen 7', 'Release of b2 Game', 'XGBoost 3.0 improvices Decision Forest Algorithms', 'New Zelda Game Now Available']"},
-        {"role": "assistant", "content": "[True, False, False, True, False]"},
-        {"role": "user", "content": f"['Giant giraffs found in Africa', 'We Exploded the AMD Ryzen 7', 'Rumors about ChatGPT-5', 'Donald Trump to make a come back', 'New Zelda Game Now Available']"}, 
-        {"role": "assistant", "content": "[False, False, True, False, False]"},
-        {"role": "user", "content": f"['Ukraine Uses a New Weapon', 'Microsoft announces new analytics suite', 'introducing boooi', 'Did you hear of Toyota?', 'Alberta AG launches Virtual Assistant']"}, 
-        {"role": "assistant", "content": "[False, False, False, False, True]"}
+        {"role": "user", "content": f"['new AI model available from Nvidia', \
+            'Apples iPhone 15 Event Likely to Be Held on Sept 17', \
+            'Release of b2 Game', \
+            'XGBoost 3.0 improvices Decision Forest Algorithms', \
+            'New Zelda Game Now Available']"},
+        {"role": "assistant", "content": "[True, True, False, True, False]"},
+        {"role": "user", "content": f"['Giant giraffs found in Africa', \
+            'We Exploded the AMD Ryzen 7', \
+            'Rumors about OpenAI ChatGPT-5', \
+            'Donald Trump to make a come back', \
+            'Apple may be testing an M3 Mac Mini']"}, 
+        {"role": "assistant", "content": "[False, True, True, False, True]"},
+        {"role": "user", "content": f"['Ukraine Uses a New Weapon', \
+            'Microsoft announces new analytics suite', \
+            'introducing boooi', \
+            'Did you hear of Toyota?', \
+            'Alberta AG launches Virtual Assistant']"}, 
+        {"role": "assistant", "content": "[False, True, False, False, True]"}
         ]
     
     return instructions, task, sample
@@ -193,7 +205,7 @@ def main_bot(df):
     logging.info(df['title'])
     
     # Check the Relevance of the News and Filter those not relevant
-    relevant_topics ="[machine learning, data science, robotics, openai, artificial intelligence (ai), neural networks, data mining, tensorflow, pytorch, nlp, data analytics, virtual assistants, chatbots, augmented reality, chatgpt, gpt, gpu, anthropic, microsoft, apple, nvidia]"
+    relevant_topics ="[machine learning, data science, robotics, openai, artificial intelligence, ai, neural networks, data mining, tensorflow, pytorch, nlp, data analytics, virtual assistants, chatbots, augmented reality, chatgpt, gpu, anthropic, microsoft, apple, nvidia]"
     instructions, task, sample = select_relevant_news_prompt(list(df['title']), relevant_topics, len(list(df['title'])))
     temperature=0.0
     relevance = openai_request(instructions, task, sample, temperature)

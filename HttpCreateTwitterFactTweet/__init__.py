@@ -7,6 +7,7 @@ from azure.storage.blob import BlobServiceClient
 import openai
 import pandas as pd
 import tweepy
+import json
 
 # Constants
 KEYVAULT_NAME = 'keyvaultforbot'
@@ -78,30 +79,45 @@ def openai_request(instructions, task, sample, model_engine='gpt-3.5-turbo'):
     completion = openai.ChatCompletion.create(
         model=model_engine,
         messages=prompt,
-        temperature=0.5,
+        temperature=1.0,
         max_tokens=300
     )
     logging.info(completion.choices[0].message.content)
     return completion.choices[0].message.content
 
 
-def create_tweet_prompt(old_terms):
+def create_tweet_prompt(term):
     """Define OpenAI Prompt for News Tweet."""
 
-    instructions = 'You are a twitter user that creates tweets with a length below 280 characters.'
-    task = 'Choose a technical term from the field of AI, machine learning or data science. Then create a twitter tweet that describes the term. Just return a python dictionary with the term and the tweet.'
-    
-    if old_terms != []:
-        avoid_terms =f'Avoid the following terms, because you have previously tweetet about them: {old_terms}'
-        task = task + avoid_terms
+    instructions = 'You are a twitter user that creates tweets with a length below 280 characters. Create a twitter tweet that describes the term. Just return the tweet.'
+    task = f'{term}'
 
     sample = [
-        {"role": "user", "content": f"Choose a technical term from the field of AI, machine learning or data science. Then create a twitter tweet that describes the term. Just return a python dictionary with the term and the tweet."},
-        {"role": "assistant", "content": "{'GradientDescent': '#GradientDescent is a popular optimization algorithm used to minimize the error of a model by adjusting its parameters. \
-         It works by iteratively calculating the gradient of the error with respect to the parameters and updating them accordingly. #ML'}"}
+        {"role": "user", "content": f"GradientDescent"},
+        {"role": "assistant", "content": "#GradientDescent is a popular optimization algorithm used to minimize the error of a model by adjusting its parameters. \
+            It works by iteratively calculating the gradient of the error with respect to the parameters and updating them accordingly. #ML"},
+         {"role": "user", "content": f"Deep Learning"},
+        {"role": "assistant", "content": "#DeepLearning is a subset of machine learning that uses artificial neural networks with multiple layers to learn and extract complex patterns from data. \
+            It has revolutionized various domains including computer vision, natural language processing, and speech recognition. #AI"}
     ]
     return instructions, task, sample
 
+
+def create_term_prompt(old_terms):
+    """Define OpenAI Prompt for News Tweet."""
+
+    instructions = 'Your job is to continue a given list and return a related term.'
+    task = f'{old_terms}'
+    
+    sample = [
+        {"role": "user", "content": f"machine learning, gradient descent, neural network, hyperparameter tuning"},
+        {"role": "assistant", "content": "'deep learning'"},
+        {"role": "user", "content": f"vector database, large language model, ChatGPT, OpenAI"},
+        {"role": "assistant", "content": "'prompt engineering'"},
+        {"role": "user", "content": f"lstm, weights, convolutional neural network, backpropagation, reinforcement learning"},
+        {"role": "assistant", "content": "'supervised learning'"}
+    ]
+    return instructions, task, sample
 
 def check_tweet_length(tweet):
     """Check if tweet length is within Twitter's limit."""
@@ -131,34 +147,35 @@ def create_tweet():
     logging.info(f'Old terms: {old_terms}')
 
     # Define prompt
-    instructions, task, sample = create_tweet_prompt(old_terms[0:25])
+    instructions, task, sample = create_term_prompt(old_terms[0:25])
+    term = openai_request(instructions, task, sample)
+    logging.info(f'Term created: {term}')
 
+    instructions, task, sample = create_tweet_prompt(term)
     # Try three times to create a tweet with a length below 280 characters
-    for _ in range(3):
+    for _ in range(1):
         # Tweet creation
-        tweet = openai_request(instructions, task, sample)
-        logging.info(f'Tweet created: {tweet}')
-
-        tweet_text = str(list(eval(tweet).values())[0])
-        term = str(list(eval(tweet).keys())[0])
-
+        
+        tweet_text = openai_request(instructions, task, sample)
+        
         # If tweet length > 280 characters, create a new tweet
         if check_tweet_length(tweet_text):
             logging.info(f'Tweet created: {tweet_text}')
 
             # Create tweet
             status = twitter_api.create_tweet(text=tweet_text)
-            logging.info(f'Twitter response: {status.id}')
 
             # Add term to list of old terms and store to blob storage
             add_term(old_terms, term)
 
-            logging.info(f'Tweet posted: {status["data"]["id"]}')
+            logging.info(f'Tweet posted: {status}')
             logging.info(f'Term added: {term}')
-            return status, term, tweet_text
+            break
+        else: 
+            status = 'error tweet too long'
+        
+    return status, term, tweet_text
             
-
-    return 'error tweet too long', '', ''
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -167,15 +184,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
 
-    
     status, term, tweet = create_tweet()
-    return func.HttpResponse(
-        f"This HTTP triggered function executed successfully.",
-        status=status,
-        tweet_id=status["data"]["id"],
-        term=term,
-        tweet=status["data"]["text"]
-    )
+
+    body = {
+        'message': "This HTTP triggered function executed successfully.",
+        'term': term,
+        'status': status,
+        'tweet': tweet
+    }
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    return func.HttpResponse(json.dumps(body), headers=headers)
 
 
 
