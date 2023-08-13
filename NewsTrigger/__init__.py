@@ -13,7 +13,8 @@ from bs4 import BeautifulSoup
 from hackernews import HackerNews
 
 # Use environment variables for API key
-client = SecretClient(f"https://{'keyvaultforbot'}.vault.azure.net/", DefaultAzureCredential())
+keyvault_name = 'keyvaultforbot' # replace with your own keyvault
+client = SecretClient(f"https://{keyvault_name}.vault.azure.net/", DefaultAzureCredential())
 logging.info('Setting NewsAPI API Key')
 NEWSAPI_API_KEY = client.get_secret('newsapi-api-key').value
 
