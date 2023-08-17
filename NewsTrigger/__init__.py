@@ -107,28 +107,35 @@ def openai_request(instructions, task, sample = [], temperature=0.5, model_engin
 
 #### Define OpenAI Prompt for news Relevance
 def select_relevant_news_prompt(news_articles, topics, n):    
-    instructions = f"Please review the given list of news titles. Determine their relevance to an audience keen on the following topics: {topics}]. \
+    instructions = f"Please review the given list of news titles. Determine their relevance to an audience keen on the following themes: {topics}]. \
     Provide a list of boolean values (True or False) corresponding to each title's relevance."
     task =  f"{news_articles}?" 
     sample = [
-        {"role": "user", "content": f"['new AI model available from Nvidia', \
+        {"role": "user", "content": f"['new AI model from Nvidia', \
             'Apples iPhone 15 Event Likely to Be Held on Sept 17', \
             'Release of b2 Game', \
-            'XGBoost 3.0 improvices Decision Forest Algorithms', \
+            'XGBoost 3.0 improves Decision Forest Algorithms', \
             'New Zelda Game Now Available']"},
         {"role": "assistant", "content": "[True, True, False, True, False]"},
         {"role": "user", "content": f"['Giant giraffs found in Africa', \
-            'We Exploded the AMD Ryzen 7', \
+            'We tested the AMD Ryzen 8', \
             'Rumors about OpenAI ChatGPT-5', \
             'Donald Trump to make a come back', \
             'Apple may be testing an M3 Mac Mini']"}, 
         {"role": "assistant", "content": "[False, True, True, False, True]"},
-        {"role": "user", "content": f"['Ukraine Uses a New Weapon', \
+        {"role": "user", "content": f"['War in Ukraine continues', \
             'Microsoft announces new analytics suite', \
-            'introducing boooi', \
-            'Did you hear of Toyota?', \
+            'Scikit-learn updates its API', \
+            'Toyota launches new car model', \
             'Alberta AG launches Virtual Assistant']"}, 
-        {"role": "assistant", "content": "[False, True, False, False, True]"}
+        {"role": "assistant", "content": "[False, True, True, False, True]"},
+        {"role": "user", "content": f"['Google bard with an upgrade', \
+            'Boston dynamics presents atlass robot', \
+            'Bosch invests into AI capabilities', \
+            'How to evaluate the performance of a neural network', \
+            'Amazon Sagemaker with new features', \
+            'Meta to release new LLMA 2 model']"}, 
+        {"role": "assistant", "content": "[True, True, True, True, True, True]"}
         ]
     
     return instructions, task, sample
@@ -253,7 +260,7 @@ def main_bot(df):
         logging.info("No news articles found")
         # 40% chance to tweet a fact
         import random
-        if random.random() < 0.4:
+        if random.random() < 0.2:
             fact = ' '
             print(f"Fact: {fact}")
             logging.info(f"Fact: {fact}")

@@ -9,7 +9,7 @@ from azure.keyvault.secrets import SecretClient
 import tweepy
 
 # Set up the Azure Key Vault client and retrieve the Blob Storage account credentials
-keyvault_name = 'keyvaultforbot'
+keyvault_name = 'keyvaultforbot' # replace with your own keyvault
 client = SecretClient(f"https://{keyvault_name}.vault.azure.net/", DefaultAzureCredential())
 
 #### Twitter Auth

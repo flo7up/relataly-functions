@@ -10,7 +10,7 @@ import tweepy
 import json
 
 # Constants
-KEYVAULT_NAME = 'keyvaultforbot'
+KEYVAULT_NAME = 'keyvaultforbot' # replace with your own keyvault
 CONTAINER_NAME = 'botdata'
 CSV_NAME = 'facts_log_test.csv'
 
