@@ -51,6 +51,13 @@ def save_posts_log(df):
     blob_client.upload_blob(data=df.to_csv(index=False), overwrite=True)
     logging.info(f'File {CSV_NAME} saved to blob storage')
     print(f'File {CSV_NAME} saved to blob storage')
+
+    try:
+        df.to_csv('news_log.csv', index=False)
+    except:
+        print('Error saving news_log.csv')
+        logging.info('Error saving news_log.csv')
+
     return True
 
 
@@ -79,18 +86,22 @@ def fetch_hacker_news(number=50):
     news_list = []
     for story in top_story_ids[:number]:
         item = hn.item(story)
-        if item.score > 180 and len(item.title) > 30:
+        if item.score > 100 and len(item.title) > 25:
             try:
-                content = fetch_main_content_from_url(item.url)[0:3000]
-                logging.info(f'Content for {item.title} fetched')
-                logging.info(f'Content length: {len(content)}')
-            except:
-                content = ''
+                url = item.url
+                try:
+                    content = fetch_main_content_from_url(url)[0:3000] #fetches 3000 characters
+                    logging.info(f'Content for {item.title} fetched')
+                    logging.info(f'Content length: {len(content)}')
+                except:
+                    content = ''
+            except AttributeError:
+                url = ""
         
             news_list.append({
                 'title': item.title,
                 'description': content,  # empty description
-                'url': item.url
+                'url': url
             })
 
     df = pd.DataFrame(news_list)
@@ -111,7 +122,7 @@ def select_relevant_news_prompt(news_articles, topics, n):
     Provide a list of boolean values (True or False) corresponding to each title's relevance."
     task =  f"{news_articles}?" 
     sample = [
-        {"role": "user", "content": f"['new AI model from Nvidia', \
+        {"role": "user", "content": f"['new LLM model from Nvidia', \
             'Apples iPhone 15 Event Likely to Be Held on Sept 17', \
             'Release of b2 Game', \
             'XGBoost 3.0 improves Decision Forest Algorithms', \
@@ -119,7 +130,7 @@ def select_relevant_news_prompt(news_articles, topics, n):
         {"role": "assistant", "content": "[True, True, False, True, False]"},
         {"role": "user", "content": f"['Giant giraffs found in Africa', \
             'We tested the AMD Ryzen 8', \
-            'Rumors about OpenAI ChatGPT-5', \
+            'LLM news: Rumors about OpenAI ChatGPT-5', \
             'Donald Trump to make a come back', \
             'Apple may be testing an M3 Mac Mini']"}, 
         {"role": "assistant", "content": "[False, True, True, False, True]"},
@@ -258,9 +269,9 @@ def main_bot(df):
     else: 
         print("No news articles found")
         logging.info("No news articles found")
-        # 40% chance to tweet a fact
+        # 3% chance to tweet a fact
         import random
-        if random.random() < 0.2:
+        if random.random() < 0.03:
             fact = ' '
             print(f"Fact: {fact}")
             logging.info(f"Fact: {fact}")

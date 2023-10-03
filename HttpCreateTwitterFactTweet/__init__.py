@@ -106,7 +106,7 @@ def create_tweet_prompt(term):
 def create_term_prompt(old_terms):
     """Define OpenAI Prompt for News Tweet."""
 
-    instructions = 'Your job is to continue a given list and return a related term.'
+    instructions = 'Your job is to continue a given list and return a related term that is not in the list.'
     task = f'{old_terms}'
     
     sample = [
