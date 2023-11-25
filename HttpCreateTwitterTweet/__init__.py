@@ -58,8 +58,8 @@ def create_tiny_url(url):
 def openai_request(instructions, task, model_engine='gpt-3.5-turbo'):
     prompt = [{"role": "system", "content": instructions }, 
               {"role": "user", "content": task }]
-    completion = openai.ChatCompletion.create(model=model_engine, messages=prompt, temperature=0.5, max_tokens=300)
-    return completion.choices[0].message.content
+    response = openai.chat.completions.create(model=model_engine, messages=prompt, temperature=0.5, max_tokens=300)
+    return response.choices[0].message.content
 
 
 #### Define OpenAI Prompt for News Tweet

@@ -11,6 +11,7 @@ import io
 from newspaper import Article
 from bs4 import BeautifulSoup
 from hackernews import HackerNews
+import json
 
 # Use environment variables for API key
 keyvault_name = 'keyvaultforbot' # replace with your own keyvault
@@ -47,29 +48,28 @@ def get_old_news():
     return df
 
 def save_posts_log(df):
+    # try:
     blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=CSV_NAME)
     blob_client.upload_blob(data=df.to_csv(index=False), overwrite=True)
-    logging.info(f'File {CSV_NAME} saved to blob storage')
+
     print(f'File {CSV_NAME} saved to blob storage')
-
-    try:
-        df.to_csv('news_log.csv', index=False)
-    except:
-        print('Error saving news_log.csv')
-        logging.info('Error saving news_log.csv')
-
+    # except:
+    #     print(f'Error df {df}')
+    #     logging.info(f'Error df {df}')
+    #     print(f'Error saving {CSV_NAME}')
+    #     logging.info(f'Error {CSV_NAME}')
     return True
 
 
-#### NewsAPI
-def fetch_newsapi_news(number=10):
-    # Fetch tech news from NewsAPI
-    url = f"https://newsapi.org/v2/top-headlines?country=us&category=technology&category=business&category=science&apiKey={NEWSAPI_API_KEY}"
-    response = requests.get(url).json()
-    news_items = response["articles"]
-    df = pd.DataFrame(news_items)
-    df = df[["title", "description", "url"]].dropna()
-    return df.head(number)
+# #### NewsAPI
+# def fetch_newsapi_news(number=10):
+#     # Fetch tech news from NewsAPI
+#     url = f"https://newsapi.org/v2/top-headlines?country=us&category=technology&category=business&category=science&apiKey={NEWSAPI_API_KEY}"
+#     response = requests.get(url).json()
+#     news_items = response["articles"]
+#     df = pd.DataFrame(news_items)
+#     df = df[["title", "description", "url"]].dropna()
+#     return df.head(number)
 
 
 def fetch_main_content_from_url(url):
@@ -78,42 +78,42 @@ def fetch_main_content_from_url(url):
     article.parse()
     return article.text
 
-#### HackerNews
-def fetch_hacker_news(number=50):
-    hn = HackerNews()
-    top_story_ids = hn.top_stories()
+# #### HackerNews
+# def fetch_hacker_news(number=50):
+#     hn = HackerNews()
+#     top_story_ids = hn.top_stories()
 
-    news_list = []
-    for story in top_story_ids[:number]:
-        item = hn.item(story)
-        if item.score > 100 and len(item.title) > 25:
-            try:
-                url = item.url
-                try:
-                    content = fetch_main_content_from_url(url)[0:3000] #fetches 3000 characters
-                    logging.info(f'Content for {item.title} fetched')
-                    logging.info(f'Content length: {len(content)}')
-                except:
-                    content = ''
-            except AttributeError:
-                url = ""
+#     news_list = []
+#     for story in top_story_ids[:number]:
+#         item = hn.item(story)
+#         if item.score > 100 and len(item.title) > 25:
+#             try:
+#                 url = item.url
+#                 try:
+#                     content = fetch_main_content_from_url(url)[0:3000] #fetches 3000 characters
+#                     logging.info(f'Content for {item.title} fetched')
+#                     logging.info(f'Content length: {len(content)}')
+#                 except:
+#                     content = ''
+#             except AttributeError:
+#                 url = ""
         
-            news_list.append({
-                'title': item.title,
-                'description': content,  # empty description
-                'url': url
-            })
+#             news_list.append({
+#                 'title': item.title,
+#                 'description': content,  # empty description
+#                 'url': url
+#             })
 
-    df = pd.DataFrame(news_list)
-    return df
+#     df = pd.DataFrame(news_list)
+#     return df
 
 #### OpenAI Engine
-def openai_request(instructions, task, sample = [], temperature=0.5, model_engine='gpt-3.5-turbo'):
+def openai_request(instructions, task, sample = [], temperature=0.5, model_engine='gpt-3.5-turbo-1106'):
     prompt = [{"role": "system", "content": instructions }, 
               {"role": "user", "content": task }]
     prompt = sample + prompt
-    completion = openai.ChatCompletion.create(model=model_engine, messages=prompt, temperature=temperature, max_tokens=400)
-    return completion.choices[0].message.content
+    response = openai.chat.completions.create(model=model_engine, messages=prompt, temperature=temperature, max_tokens=400)
+    return response.choices[0].message.content
 
 
 #### Define OpenAI Prompt for news Relevance
@@ -206,9 +206,13 @@ def create_fact_tweet(input=""):
 #### Define OpenAI Prompt for news Relevance
 def previous_post_check(title, old_posts):
     instructions, task, sample = check_previous_posts_prompt(title, old_posts)
-    response = openai_request(instructions, task, sample)
+    response = openai_request(instructions, task, sample, 0.5, "gpt-4-1106-preview")
     logging.info('doublicate_check:' + response)
-    response = eval(response)
+    try:
+        response = eval(response)
+    except:
+        print('Error in previous_post_check: ' + response)
+        response = 0
     logging.info('doublicate_check:' + str(response))
     return response
 
@@ -240,14 +244,15 @@ def main_bot(df):
             if s == 1:
                 break
             logging.info('info:' + row['title'])
-            title = row['title']
+            title = row['title'].replace('"', "").replace("'", "").replace("’", "").replace("“", "").replace("”", "")
             title = title.replace("'", "")
+            print(f"title {title}")
             description = row['description']
             url = row['url']            
                                              
             if (title not in df_old.title.values):
                 doublicate_check = previous_post_check(title, list(df_old.tail(10)['title']))
-                if doublicate_check < 4:
+                if doublicate_check < 3:
                     # create tweet
                     response = call_tweet_function(title, description, url)
                     if response == 200:
@@ -283,6 +288,57 @@ def main_bot(df):
                 print(f"Error: {response}")
                 logging.info(f"Error: {response}")
 
+def bingsearch(news_count=10):
+    # bing search example
+    # https://docs.microsoft.com/en-us/azure/cognitive-services/bing-web-search/quickstarts/python
+
+    # Add your Bing Search V7 subscription key and endpoint to your environment variables.
+    subscription_key = client.get_secret('bingsearchapi').value
+    endpoint = "https://api.bing.microsoft.com/v7.0/news/search"
+
+    # Query term(s) to search for.
+    query = "Artificial Intelligence"
+
+    # Construct a request
+    mkt = "en-US"
+    params = {'q': query, 'mkt': mkt}
+    headers = {'Ocp-Apim-Subscription-Key': subscription_key}
+
+    # Call the API
+    try:
+        response = requests.get(endpoint, headers=headers, params=params)
+        response.raise_for_status()
+
+        # Print the response
+        jsonResponse = response.json()
+        print(json.dumps(jsonResponse, indent=4))
+
+    except Exception as ex:
+
+        raise ex
+
+
+
+    # get name and description for all news, then concatenate them and put them into a list
+    news = []
+    data = jsonResponse
+
+    news_list = []
+    for item in data['value']:
+        news_list.append({
+                    'title': item['name'],
+                    'description': item['description'],  # empty description
+                    'url': item['url']
+                })
+
+    df = pd.DataFrame(news_list)
+    # show the full df content
+    #pd.set_option('display.max_colwidth', None)
+    logging.info('df')
+    # limit df to 10 records
+    df_limited = df.head(news_count)
+    return df_limited
+
 
 
 def main(mytimer: func.TimerRequest) -> None:
@@ -291,10 +347,11 @@ def main(mytimer: func.TimerRequest) -> None:
 
     if mytimer.past_due:
         logging.info('The timer is past due!')
-    df_news_api = fetch_newsapi_news(5)
-    main_bot(df_news_api)
-    df_hacker_news = fetch_newsapi_news(10)
-    main_bot(df_hacker_news)
-
+    # df_news_api = fetch_newsapi_news(5)
+    # main_bot(df_news_api)
+    # df_hacker_news = fetch_newsapi_news(10)
+    # main_bot(df_hacker_news)
+    df_bing = bingsearch(10)
+    main_bot(df_bing)
 
     logging.info('Python timer trigger function ran at %s', utc_timestamp)

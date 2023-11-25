@@ -68,7 +68,7 @@ def get_old_terms():
     return df
 
 
-def openai_request(instructions, task, sample, model_engine='gpt-3.5-turbo'):
+def openai_request(instructions, task, sample, model_engine='gpt-4-1106-preview'):
     """Create an OpenAI request."""
 
     prompt = [
@@ -76,7 +76,7 @@ def openai_request(instructions, task, sample, model_engine='gpt-3.5-turbo'):
         {"role": "user", "content": task}
     ]
     prompt = sample + prompt
-    completion = openai.ChatCompletion.create(
+    completion = openai.chat.completions.create(
         model=model_engine,
         messages=prompt,
         temperature=1.0,
@@ -89,7 +89,7 @@ def openai_request(instructions, task, sample, model_engine='gpt-3.5-turbo'):
 def create_tweet_prompt(term):
     """Define OpenAI Prompt for News Tweet."""
 
-    instructions = 'You are a twitter user that creates tweets with a length below 280 characters. Create a twitter tweet that describes the term. Just return the tweet.'
+    instructions = 'You are a twitter user that creates tweets with a length below 280 characters with the intention to inspire, entertain and/or inform people. Create a twitter tweet that describes the term. Just return the tweet.'
     task = f'{term}'
 
     sample = [
@@ -112,9 +112,9 @@ def create_term_prompt(old_terms):
     sample = [
         {"role": "user", "content": f"machine learning, gradient descent, neural network, hyperparameter tuning"},
         {"role": "assistant", "content": "'deep learning'"},
-        {"role": "user", "content": f"vector database, large language model, ChatGPT, OpenAI"},
+        {"role": "user", "content": f"gradient descent, neural network, hyperparameter tuning, deep learning"},
         {"role": "assistant", "content": "'prompt engineering'"},
-        {"role": "user", "content": f"lstm, weights, convolutional neural network, backpropagation, reinforcement learning"},
+        {"role": "user", "content": f"neural network, hyperparameter tuning, deep learning, prompt engineering"},
         {"role": "assistant", "content": "'supervised learning'"}
     ]
     return instructions, task, sample

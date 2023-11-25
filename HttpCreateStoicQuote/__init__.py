@@ -24,7 +24,7 @@ def openai_request(instructions, task, sample, model_engine='gpt-3.5-turbo'):
         {"role": "user", "content": task}
     ]
     prompt = sample + prompt
-    completion = openai.ChatCompletion.create(
+    completion = openai.chat.completions.create(
         model=model_engine,
         messages=prompt,
         temperature=1.0,
