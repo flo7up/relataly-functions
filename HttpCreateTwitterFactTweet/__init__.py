@@ -4,7 +4,7 @@ import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
-import openai
+from openai import OpenAI
 import pandas as pd
 import tweepy
 import json
@@ -42,8 +42,7 @@ twitter_api = tweepy.Client(
 )
 
 # OpenAI API Key
-openai_api_key = keyvault_client.get_secret('openai-api-key').value
-openai.api_key = openai_api_key
+openaiclient = OpenAI(api_key=keyvault_client.get_secret('openai-api-key').value)
 
 
 def ensure_container_exists():
@@ -76,7 +75,7 @@ def openai_request(instructions, task, sample, model_engine='gpt-4-1106-preview'
         {"role": "user", "content": task}
     ]
     prompt = sample + prompt
-    completion = openai.chat.completions.create(
+    completion = openaiclient.chat.completions.create(
         model=model_engine,
         messages=prompt,
         temperature=1.0,

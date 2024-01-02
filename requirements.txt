@@ -3,7 +3,7 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
-openai
+openai=1.6.1
 pandas
 azure-storage-blob
 azure-storage-file-share

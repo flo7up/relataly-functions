@@ -3,7 +3,7 @@ import logging
 import requests
 import pandas as pd
 import azure.functions as func
-import openai
+from openai import OpenAI
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
@@ -20,8 +20,7 @@ logging.info('Setting NewsAPI API Key')
 NEWSAPI_API_KEY = client.get_secret('newsapi-api-key').value
 
 logging.info('Setting OpenAI API Key')
-OPENAI_API_KEY = client.get_secret('openai-api-key').value
-openai.api_key = OPENAI_API_KEY
+openaiclient = OpenAI(api_key=client.get_secret('openai-api-key').value)
 
 logging.info('Setting Function App API Key')
 API_KEY = client.get_secret('function-app-api').value
@@ -112,7 +111,7 @@ def openai_request(instructions, task, sample = [], temperature=0.5, model_engin
     prompt = [{"role": "system", "content": instructions }, 
               {"role": "user", "content": task }]
     prompt = sample + prompt
-    response = openai.chat.completions.create(model=model_engine, messages=prompt, temperature=temperature, max_tokens=400)
+    response = openaiclient.chat.completions.create(model=model_engine, messages=prompt, temperature=temperature, max_tokens=400)
     return response.choices[0].message.content
 
 

@@ -1,7 +1,7 @@
 
 import azure.functions as func
 import logging
-import openai
+from openai import OpenAI
 import requests
 import logging
 from azure.identity import DefaultAzureCredential
@@ -22,7 +22,7 @@ twitter_api = tweepy.Client(bearer_token=client.get_secret('twitterbearertoken')
 logging.info('Twitter API ready')
 
 ##### OpenAI API Key
-openai.api_key = client.get_secret('openai-api-key').value
+openaiclient = OpenAI(api_key=client.get_secret('openai-api-key').value)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
@@ -58,7 +58,7 @@ def create_tiny_url(url):
 def openai_request(instructions, task, model_engine='gpt-3.5-turbo'):
     prompt = [{"role": "system", "content": instructions }, 
               {"role": "user", "content": task }]
-    response = openai.chat.completions.create(model=model_engine, messages=prompt, temperature=0.5, max_tokens=300)
+    response = openaiclient.chat.completions.create(model=model_engine, messages=prompt, temperature=0.5, max_tokens=300)
     return response.choices[0].message.content
 
 
